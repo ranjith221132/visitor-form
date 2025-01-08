@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Step Form with Face Recording</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .arrow {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 24px;
+            color: #FF0000;
+            display: none;
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            max-width: 640px;
+            margin: auto;
+            height: auto;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-gray-100 to-gray-300 flex items-center justify-center min-h-screen">
+
+    <div class="w-full max-w-4xl bg-white shadow-xl rounded-lg overflow-hidden">
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-indigo-700 to-indigo-700 text-white p-6 text-center">
+            <h1 class="text-3xl font-bold">Multi-Step Form with Face Recording</h1>
+        </div>
+
+        <!-- Form Container -->
+        <div class="p-6">
+            <!-- Step 1: Basic Details -->
+            <div id="step1" class="form-step">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Step 1: Your Information</h2>
+                <form id="formStep1">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="name" class="block text-gray-700 font-medium">Name</label>
+                            <input type="text" id="name" name="name" class="w-full p-3 border border-gray-300 rounded-lg" value="{{ name }}" disabled>
+                        </div>
+                        <div>
+                            <label for="phone_number" class="block text-gray-700 font-medium">Phone Number</label>
+                            <input type="tel" id="phone_number" name="phone_number" class="w-full p-3 border border-gray-300 rounded-lg" required>
+                        </div>
+                        <div>
+                            <label for="email" class="block text-gray-700 font-medium">Email</label>
+                            <input type="email" id="email" name="email" class="w-full p-3 border border-gray-300 rounded-lg" value="{{ email }}" disabled>
+                        </div>
+                        <div>
+                            <label for="civil_id" class="block text-gray-700 font-medium">Civil ID Number</label>
+                            <input type="text" id="civil_id" name="civil_id" class="w-full p-3 border border-gray-300 rounded-lg" required>
+                        </div>
+                        <div>
+                            <label for="civil_id_photo" class="block text-gray-700 font-medium">Upload Civil ID Photo</label>
+                            <input type="file" id="civil_id_photo" name="civil_id_photo" accept="image/*" class="w-full p-3 border border-gray-300 rounded-lg" required>
+                        </div>
+                        <div>
+                            <label for="passport_photo" class="block text-gray-700 font-medium">Upload Passport Photo</label>
+                            <input type="file" id="passport_photo" name="passport_photo" accept="image/*" class="w-full p-3 border border-gray-300 rounded-lg" required>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <label for="purpose" class="block text-gray-700 font-medium">Purpose</label>
+                        <textarea id="purpose" name="purpose" rows="4" class="w-full p-3 border border-gray-300 rounded-lg" required></textarea>
+                    </div>
+                    <div class="text-center mt-6">
+                        <button type="button" id="nextBtn" class="bg-indigo-700 text-white px-6 py-3 rounded-xl relative overflow-hidden group">
+                            <span class="absolute top-0 left-0 w-full h-full bg-white opacity-20 transform -skew-x-12 -translate-x-full group-hover:translate-x-0 transition duration-500"></span>
+                            <span class="relative z-10">Next</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Step 2: Face Recording -->
+            <div id="step2" class="form-step hidden">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Step 2: Record Your Face</h2>
+                <div class="canvas-container border border-gray-300 rounded-lg p-4">
+                    <video id="video" width="100%" height="auto" autoplay class="rounded-lg"></video>
+                    <canvas id="canvas" width="640" height="480" class="hidden"></canvas>
+                    <div id="faceArrow" class="arrow">⬆</div>
+                </div>
+                <div class="text-center mt-4">
+                    <button id="captureBtn" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700">
+                        Start Recording
+                    </button>
+                </div>
+                <div id="timerDisplay" class="text-center mt-4 text-xl font-bold">10</div>
+                <div class="text-center gap-4 space-x-4 mt-4">
+                    <a id="downloadBtn" href="#" download="captured_face_video.webm" class="hidden bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700">
+                        Download Video
+                    </a>
+                    <button id="submitBtn" class="hidden bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700">
+                        Submit
+                    </button>
+                </div>
+                <div id="faceSpecs" class="mt-4 hidden">
+                    <p><strong>Face Orientation:</strong> Front</p>
+                    <p><strong>Camera Resolution:</strong> 640x480</p>
+                    <p><strong>Capture Time:</strong> <span id="captureTime"></span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const nextBtn = document.getElementById('nextBtn');
+        const step1 = document.getElementById('step1');
+        const step2 = document.getElementById('step2');
+        const video = document.getElementById('video');
+        const captureBtn = document.getElementById('captureBtn');
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const submitBtn = document.getElementById('submitBtn');
+        const faceArrow = document.getElementById('faceArrow');
+        const faceSpecs = document.getElementById('faceSpecs');
+        const captureTime = document.getElementById('captureTime');
+        const timerDisplay = document.getElementById('timerDisplay');
+
+        let mediaRecorder;
+        let recordedChunks = [];
+        let countdown;
+        let timer = 10;
+        let cameraStream;
+
+        nextBtn.addEventListener('click', function() {
+            if (document.getElementById('formStep1').checkValidity()) {
+                step1.classList.add('hidden');
+                step2.classList.remove('hidden');
+                startCamera();
+            } else {
+                alert('Please fill out all required fields in Step 1.');
+            }
+        });
+
+        function startCamera() {
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(function(stream) {
+                    video.srcObject = stream;
+                    cameraStream = stream;
+                    console.log("Camera stream started"); // Log stream to check
+                    mediaRecorder = new MediaRecorder(stream);
+                    mediaRecorder.ondataavailable = function(event) {
+                        recordedChunks.push(event.data);
+                    };
+                    mediaRecorder.onstop = function() {
+                        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                        const videoURL = URL.createObjectURL(blob);
+                        downloadBtn.href = videoURL;
+                    };
+                })
+                .catch(function(err) {
+                    console.error("Could not access the camera:", err);
+                    alert("Could not access the camera.");
+                });
+        }
+        
+        captureBtn.addEventListener('click', function() {
+            if (!mediaRecorder) {
+                alert('Camera not initialized yet.');
+                return;
+            }
+            // Proceed with starting the recording
+            captureBtn.disabled = true;
+            captureBtn.style.display = 'none';
+            faceArrow.style.display = 'block';
+            faceSpecs.style.display = 'block';
+            mediaRecorder.start();
+            countdown = setInterval(function() {
+                timerDisplay.textContent = timer;
+                timer--;
+                if (timer < 0) {
+                    clearInterval(countdown);
+                    mediaRecorder.stop();
+                    cameraStream.getTracks().forEach(track => track.stop());
+                    downloadBtn.classList.remove('hidden');
+                    submitBtn.classList.remove('hidden');
+                }
+            }, 1000);
+            captureTime.textContent = new Date().toLocaleTimeString();
+        });
+        
+        submitBtn.addEventListener('click', function () {
+            const formData = new FormData();
+            
+            // Add Step 1 form data
+            const name = document.getElementById('name').value;
+            const phone = document.getElementById('phone_number').value;
+            const email = document.getElementById('email').value;
+            const civil_id = document.getElementById('civil_id').value;
+            const civil_id_photo = document.getElementById('civil_id_photo').files[0];
+            const passport_photo = document.getElementById('passport_photo').files[0];
+            const purpose = document.getElementById('purpose').value;
+        
+            formData.append('name', name);
+            formData.append('phone_number', phone);
+            formData.append('email', email);
+            formData.append('civil_id', civil_id);
+            formData.append('civil_id_photo', civil_id_photo);
+            formData.append('passport_photo', passport_photo);
+            formData.append('purpose', purpose);
+        
+            // Add recorded video file
+            const videoBlob = new Blob(recordedChunks, { type: 'video/webm' });
+            formData.append('face_video', videoBlob, 'face_video.webm');
+        
+            // Extract the token from the URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+        
+            if (!token) {
+                alert('Token is missing in the URL.');
+                return;
+            }
+        
+            // Send POST request with Authorization token
+            fetch('http://127.0.0.1:5000/visitor/add', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: formData,
+            })
+                .then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    } else {
+                        throw new Error('Failed to submit the form');
+                    }
+                })
+                .then(data => {
+                    alert('Form submitted successfully!');
+                    console.log('Server Response:', data);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred while submitting the form.');
+                });
+        });
+        
+    </script>
+</body>
+</html>
